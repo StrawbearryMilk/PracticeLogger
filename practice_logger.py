@@ -1,35 +1,40 @@
 import time 
 import pickle
-from datetime import date
+from datetime import date, timedelta
 
-class AccountMap:
+
+class AccountMap(dict):
     """Dictionary class to manage saved user Accounts"""
-    def __init__(self): 
-        self.map = {}
-
-    def isValidAccount(self, submission):
-        if submission[0] in self.map:
-            username = submission[0]
-            if str(submission[1]) == self.map[username].getPassword():
+    def __init__(self, *arg, **kwargs): 
+        super(AccountMap, self).__init__(*arg, **kwargs)
+    """Check to see if account username and password are correct"""
+    def isValidAccount(self, login):
+        if login[0] in self:
+            if self[login[0]].getPassword() == login[1]:
                 return True
-        return False
+        else:
+            return False
 
+    """"Checks to see if a user can claim this username"""
     def isUsernameAvailable(self, username):
-        return username not in self.map
+        return username not in self
 
+    """Adds account to the dictionary"""
     def addAccount(self, username, password):
-        self.map[username] = Account(username = username, password = password, points = 0, multiplier = 0, lastDate = date.today())
-        return self.map[username]
+        self[username] = Account(username = username, password = password, points = 0, multiplier = 1, lastDate = date.today())
+        return self[username]
 
+    """"Removes account from dictionary"""
     def delAccount(self, username):
-        removedAccount = self.map[username]
-        del(self.map[username])
+        removedAccount = self[username]
+        del(self[username])
         return removedAccount
     
-    def updateAccount(self, username, password, points, multiplier, consecutiveDays):
-        self.map[username] = Account(username = username, password = password, points = points, multiplier = multiplier, lastDate = date.today())
+    """Updates account information. May add password change feature later, dunno"""
+    def updateAccount(self, username, password, points, multiplier, lastDate):
+        self[username] = Account(username = username, password = password, points = points, multiplier = multiplier, lastDate = date.today())
         print("Okay " + username + ", you're information has been updated.")    
-        return self.map[username]
+        return self[username]
 
 class Account: 
     """Object stored in the Account map
@@ -39,38 +44,44 @@ class Account:
     worked. The last date attribute is used to update the multiplier.
     
     """
-    
-    def __init__(self, username, password, points, multiplier, lastDate):
-        self.username = ""; self.password = ""; self.points = 0; self.multiplier = 0
+    def __init__(self, username, password, points = 0, multiplier = 1, lastDate = date.today()):
+        self.username = ""; self.password = ""; self.points = 0; self.multiplier = 1
         self.lastDate = date.today()
 
-    def updateMultiplierAndLastDate(self, multiplier, lastDate):
-        diff = date.today() - self.lastDate
-        if (diff != 1):
-            self.multiplier = 1
-        else: #last date played was yesterday
-            self.multiplier += 1
-        self.lastDate = 1 #No need to store previous date
-
-    def incrementPoints(self, points, multiplier): #t is amount of time currently spent
+    """Increment points based on number of days consecutively logged on"""
+    def incrementPoints(self, multiplier): #t is amount of time currently spent
         self.points += multiplier
 
+    """Returns username of the account"""
     def getUsername(self, username):
         return self.username
 
+    """Returns password of the account"""
     def getPassword(self):
         return self.password
     
+    """Changes password of the account, don't know if I'll actually use this"""
     def changePassword(self, password, newPassword):
         self.password = newPassword
         return newPassword
 
+    """Returns points the user has"""
     def getPoints(self):
         return self.points
+    
+    """Returns the multiplier value"""
+    def getMultiplier(self):
+        return self.multiplier
+    
+    """Adjusts the multiplier based on when the user last logged on"""
+    def adjustMultiplier(self):
+        if self.lastDate == date.today() - timedelta(days = 1): #logged on yesterday, keep boosting multiplier
+            self.multiplier += 1
+        elif self.lastDate != date.today():
+            self.multiplier = 1 #no consecutive days, restart multiplier
 
 timeToday = 0 #amount of time in minutes spent on practice today
-#totalTime = 0 #total time spent training, 0 if user does not already have account
-newUser = False
+newUser = False #False if there is no pickle file or if you wish to make a new account
 try:
     with open('account_storage.pkl', 'rb') as pklf:
         accountDict = pickle.load(pklf)
@@ -78,7 +89,7 @@ except:
     newUser = True
     accountDict = AccountMap()
     print("Welcome! Let's create an account for you.")
-print(accountDict.isUsernameAvailable("name"))
+
 if newUser == False:
     print("Hello, do you have an account? (y/n)")
     choice = input()
@@ -98,13 +109,25 @@ if newUser == False:
         username = input()
         print("Enter your password: ")
         password = input()
-        submission = [username,password]
-        if accountDict.isValidAccount(submission):
-            print("Welcome,", username)
-            account = accountDict[submission[0]]
-            print("So far you have", account.getPoints())
-        else:
-            print("kys")
+        submission = [username,password]        
+        
+        if (accountDict.isValidAccount(submission) == False):
+            while True:
+                print("Invalid log-in information. Please try again.")
+                print("Enter your username: ")
+                username = input()
+                print("Enter your password: ")
+                password = input()
+                submission = [username,password]
+                if accountDict.isValidAccount(submission):
+                    account = accountDict[submission[0]]
+                    break
+            
+        print("Welcome,", username)
+        account = accountDict[submission[0]]
+        print("So far you have", account.getPoints(), "points!")
+        account.adjustMultiplier()           
+
     elif choice == "n":
         newUser = True #I need a way to make this occur when a pkl exists, 
                        #and when I just want a new account made
@@ -120,30 +143,37 @@ if newUser == True:
         print("Or that anyone will even want to get in your account... or that there's anything of value...")
         print("Time to re-evaluate my life goals...")
     print("Now let's create a save file for your account set.")
-    account = Account(username, password, 0,0,0)
+    account = Account(username, password)
     accountDict.addAccount(username, password)
     with open('account_storage.pkl', 'wb') as pklf:
         pickle.dump(accountDict, pklf)
 print("Welcome. Time for the trial!")
+multi = account.getMultiplier()
 mins = 0
 setMins = 15 #used to adjust the waiting time in minutes
 ptsTracker = 0 #when logged time exceeds a new value of 15, we can increment the points
-lastDate = date.today()
 while True:
-    time.sleep(60*setMins)
+    time.sleep(60)#*setMins)
     mins += setMins
     print('\a')
     if (mins//15 > ptsTracker):
-        account.incrementPoints(ptsTracker, lastDate)
-        ptsName = "point" if ptsTracker == 1 else "points"
-        print("You've gained", account.getPoints(), ptsName)
+        ptsTracker += 1
+        account.incrementPoints(multi)
+        ptsName = "point" if multi == 1 else "points"
+        print("You've gained", ptsTracker*multi, ptsName)
         print("You've reached " + str(mins) + " minutes. Do you wish to stop?(y/n)\n")
         choice = input()
         while choice not in ["y","n"]:
             print("y or n only")
             choice = input()
         if choice == "y":
-            print("Now saving your data...\n...\nData has been saved. (not really, that's coming in a later version.)")
+            print("Now saving your data...")
+            accountDict[username] = account
+            print(account.getPoints)
+            #accountDict.updateAccount(username = username, password = password, points = points, multiplier = multi, lastDate = date.today())
+            print("Data has been saved. (not really, that's coming in a later version.)")
+            with open('account_storage.pkl', 'wb') as pklf:
+                pickle.dump(accountDict, pklf)
             break
         else:
             print("Okay, let's keep going!")
@@ -158,19 +188,9 @@ print("Ciao ciao!")
 
 '''
 Future ideas
-    -Incorporate notification sound
-    -write statement for attempting to sign in with non-existing username
-        -will loop back to original question
-    -Save the dictionary at the end
-    -Use pickles to save the above hashmap (will have multiple users)
-    -Statement for log and save completion
+    -same text should pop up after unsuccessful login succeeds
+    -Incorporate better notification sound
     -Save user info once they sign out
-    -Detect existence of pickle 
-    -Implement consecutive day counter
-        -after sign in, show consec days and multiplier
-        -will be updated once you successfully sign out
-        -use datetime to verify consecutiveness
-    -password verification
     -Pop up for username, pw, sign out, desired time
     -Display countdown ? (or stop watch)
     -Implement API to remotely log hours
