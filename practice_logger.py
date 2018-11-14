@@ -197,15 +197,3 @@ while True:
         
 print("Ciao ciao!")
 sys.exit()
-
-'''
-Future ideas
-    -Incorporate better notification sound
-    -Pop up for username, pw, sign out, desired time
-    -Display countdown ? (or stop watch)
-    -Implement API to remotely log hours
-    -GUI stuff 
-    -Share
-    -Implement a unit testing system
-    
-'''
