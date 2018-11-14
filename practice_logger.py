@@ -131,9 +131,8 @@ if newUser == False:
         print("Welcome,", username)
         ptsName = "point." if account.points == 1 else "points!"
         print("So far you have", account.getPoints(), ptsName)
-        print(account.lastDate)
-        account.lastDate = date.today() - timedelta(days = 1)
-        print(account.lastDate)
+        #print(account.lastDate)
+        #account.lastDate = date.today() - timedelta(days = 1)
         account.adjustMultiplier()           
 
     elif choice == "n":
@@ -156,20 +155,22 @@ if newUser == True:
 
 print("Time to get busy!")
 multi = account.getMultiplier()
-mins = 0
+minsToAdd = 0; minsRemaining = 0; minsTotal = 0
 setMins = 15 #used to adjust the waiting time in minutes
 ptsTracker = 0 #when logged time exceeds a new value of 15, we can increment the points
 while True:
-    time.sleep(60*setMins)
-    mins += setMins
-    m = mins//15
+    time.sleep(setMins)
+    minsTotal += (setMins + minsRemaining)
+    minsRemaining += setMins%15
+    minsToAdd = minsTotal//15
     print('\a')
-    if (m > ptsTracker):
-        ptsTracker += m - ptsTracker
-        account.incrementPoints(multi)
-        ptsName = "point." if ptsTracker*multi == 1 else "points."
-        print("You've gained", ptsTracker*multi, ptsName)
-    print("You've reached your goal of " + str(mins) + " minutes.")
+    if (minsToAdd >= 1): #If 1+ points are gained, increment by points * multi
+        account.incrementPoints(multi*minsToAdd)
+        ptsName = "point." if minsToAdd*multi == 1 else "points."
+        print("You've gained", minsToAdd*multi, ptsName)
+        minsTotal = minsRemaining
+        minsRemaining = 0
+    print("You've reached your goal of " + str(setMins) + " minutes.")
     
     choice = input("Do you wish to stop: ")
     while choice not in ["y","n"]:
@@ -178,7 +179,7 @@ while True:
     if choice == "y":
         print("Now saving your data...")
         accountDict.updateAccount(username, 
-            password, account.getPoints(), multi, date.today())
+            password, account.points, multi, date.today())
         with open('account_storage.pkl', 'wb') as pklf:
             pickle.dump(accountDict, pklf)
 
@@ -192,7 +193,6 @@ while True:
             print("No, give me a number in minutes.")
             choice = int(input())
         setMins = choice
-        mins -= 15*m
         print("Okay, let's go for", setMins, "minutes!")
         
 print("Ciao ciao!")
@@ -206,7 +206,6 @@ Future ideas
     -Implement API to remotely log hours
     -GUI stuff 
     -Share
-    -redo in Java or something 
     -Implement a unit testing system
     
 '''
